@@ -1,9 +1,20 @@
-import { redirect } from "next/navigation";
+import Script from "next/script";
+import { SPA_BODY } from "../src/spa/body";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/** Prefer the static SPA shell; keeps / working even if only public/ is CDN-served via index.html. */
+/**
+ * Serve the WorkPanda SPA through Next (not public/index.html) so the host
+ * deploys as a Next.js app with /api/* server routes instead of static-only CDN.
+ */
 export default function HomePage() {
-  redirect("/index.html");
+  return (
+    <>
+      <div dangerouslySetInnerHTML={{ __html: SPA_BODY }} />
+      <Script src="/js/store.js" strategy="beforeInteractive" />
+      <Script src="/js/calc.js" strategy="beforeInteractive" />
+      <Script src="/js/app.js" strategy="afterInteractive" />
+    </>
+  );
 }

@@ -1048,10 +1048,15 @@
     renderAll();
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
+  function start() {
     boot().catch((err) => {
       console.error(err);
       toast("初始化失敗：" + err.message);
     });
-  });
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start);
+  } else {
+    start();
+  }
 })();
