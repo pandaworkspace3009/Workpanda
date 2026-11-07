@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WorkPanda — 業務日曆・排班・股東結算</title>
-  <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="/css/app.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -17,7 +17,7 @@
         </div>
       </div>
       <div class="mode-pill" title="於「設定」切換儲存模式">
-        儲存模式：<strong id="modeLabel">本機測試 (LocalStorage)</strong>
+        儲存模式：<strong id="modeLabel">雲端同步</strong>
       </div>
     </header>
 
@@ -213,9 +213,12 @@
           </label>
           <label class="field" style="margin-top:12px">資料儲存模式
             <select id="storageMode">
-              <option value="local">本機（LocalStorage）— 預設／離線</option>
-              <option value="firebase">雲端同步（Firestore）— 需自行設定 Auth + 憑證</option>
+              <option value="cloud">雲端同步（跨裝置即時）— 建議</option>
+              <option value="local">本機（LocalStorage）— 離線後備</option>
             </select>
+          </label>
+          <label class="field" style="margin-top:12px">同步密碼（選填）
+            <input type="password" id="syncTokenInput" placeholder="若 App 為 Public，請輸入與 WORKPANDA_SYNC_TOKEN 相同嘅密碼" autocomplete="off" />
           </label>
           <p id="firebaseStatus" style="font-size:0.82rem;margin:10px 0 0"></p>
           <div class="form-actions" style="justify-content:flex-start">
@@ -233,9 +236,9 @@
             <input type="file" id="importFile" accept="application/json,.json" hidden />
           </div>
           <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:0.85rem;color:var(--muted)">
-            <strong style="color:var(--ink)">儲存說明</strong>
-            <p style="margin:8px 0 0">發佈版預設本機 LocalStorage；多裝置可用 JSON 匯出／匯入同步。</p>
-            <p style="margin:8px 0 0">雲端 Firestore 已停用（不嵌入正式憑證）。若要自架啟用，需自行加入 Firebase Auth、Firestore rules，以及 SDK／設定檔。</p>
+            <strong style="color:var(--ink)">跨裝置同步</strong>
+            <p style="margin:8px 0 0">資料存於 App 專用 Postgres；各裝置開啟同一網址即可即時共用。</p>
+            <p style="margin:8px 0 0">Private／Team 發佈會用 Cursor 登入保護；Public 發佈請在 Cursor Secrets 設定同步密碼，並於每部裝置輸入相同密碼。</p>
           </div>
         </div>
       </div>
@@ -389,9 +392,8 @@
   <div class="toast" id="toast" role="status"></div>
 
   <!-- 發佈版不載入 Firebase SDK／正式憑證；本機 LocalStorage 即可運作 -->
-  <script src="firebase-config.js"></script>
-  <script src="js/store.js"></script>
-  <script src="js/calc.js"></script>
-  <script src="js/app.js"></script>
+  <script src="/js/store.js"></script>
+  <script src="/js/calc.js"></script>
+  <script src="/js/app.js"></script>
 </body>
 </html>

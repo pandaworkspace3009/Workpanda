@@ -70,9 +70,14 @@
 
   function renderMode() {
     const mode = store.getMode();
-    $("#modeLabel").textContent = mode === "firebase" ? "雲端同步 (Firestore)" : "本機測試 (LocalStorage)";
+    let label = "本機 (LocalStorage)";
+    if (mode === "cloud") {
+      label = store.sampleData ? "雲端同步（本機示範庫）" : "雲端同步（即時）";
+      if (store.lastError) label = "雲端未連線 → 本機";
+    }
+    $("#modeLabel").textContent = label;
     const sel = $("#storageMode");
-    if (sel) sel.value = mode;
+    if (sel) sel.value = mode === "cloud" ? "cloud" : "local";
   }
 
   function renderKPIs(data) {
@@ -159,7 +164,9 @@
     const icon = a.attribution === "exclusive" ? "◆" : "●";
     const name = escapeHtml(a.name);
     const meta = escapeHtml(`${a.startTime || ""}${sh ? " · " + sh : ""}`);
-    return `<button type="button" class="event-chip ${a.status} ${a.attribution}" data-act="${escapeHtml(a.id)}" title="${name}">
+    const st = safeToken(a.status, STATUS_OK);
+    const at = safeToken(a.attribution, ATTR_OK);
+    return `<button type="button" class="event-chip ${st} ${at}" data-act="${escapeAttr(a.id)}" title="${name}">
       ${icon} ${name}
       <span class="meta">${meta}</span>
     </button>`;
@@ -193,8 +200,10 @@
         const eh = a.endTime ? Number(String(a.endTime).split(":")[0]) : sh + 2;
         const top = Math.max(0, (sh - 8) * 48);
         const height = Math.max(36, (Math.max(eh, sh + 1) - sh) * 48);
-        const cls = `week-event event-chip ${a.status} ${a.attribution}`;
-        html += `<button type="button" class="${cls}" data-act="${escapeHtml(a.id)}" style="top:${top}px;height:${height}px">${escapeHtml(a.name)}<span class="meta">${escapeHtml(a.startTime || "")}–${escapeHtml(a.endTime || "")}</span></button>`;
+        const st = safeToken(a.status, STATUS_OK);
+        const at = safeToken(a.attribution, ATTR_OK);
+        const clsSafe = `week-event event-chip ${st} ${at}`;
+        html += `<button type="button" class="${clsSafe}" data-act="${escapeAttr(a.id)}" style="top:${Number(top)}px;height:${Number(height)}px">${escapeHtml(a.name)}<span class="meta">${escapeHtml(a.startTime || "")}–${escapeHtml(a.endTime || "")}</span></button>`;
       });
       html += `</div></div>`;
     }
@@ -213,19 +222,21 @@
       .map((a) => {
         const net = WPCalc.activityNetProfit(a);
         const sh = (data.shareholders || []).find((s) => s.id === a.exclusiveShareholderId);
-        return `<tr data-act-row="${a.id}" style="cursor:pointer">
-          <td>${a.date}<div style="color:var(--muted);font-size:0.78rem">${a.startTime || ""}–${a.endTime || ""}</div></td>
+        const st = safeToken(a.status, STATUS_OK);
+        const at = safeToken(a.attribution, ATTR_OK);
+        return `<tr data-act-row="${escapeAttr(a.id)}" style="cursor:pointer">
+          <td>${escapeHtml(a.date)}<div style="color:var(--muted);font-size:0.78rem">${escapeHtml(a.startTime || "")}–${escapeHtml(a.endTime || "")}</div></td>
           <td><strong>${escapeHtml(a.name)}</strong><div style="color:var(--muted);font-size:0.78rem">${escapeHtml(a.notes || "")}</div></td>
-          <td><span class="badge ${a.status}">${statusLabel(a.status)}</span></td>
-          <td><span class="badge ${a.attribution}">${attrLabel(a.attribution)}</span>${
-            a.attribution === "exclusive"
+          <td><span class="badge ${st}">${statusLabel(st)}</span></td>
+          <td><span class="badge ${at}">${attrLabel(at)}</span>${
+            at === "exclusive"
               ? `<div style="font-size:0.75rem;margin-top:4px">${escapeHtml(sh?.name || "")}<br>${payLocLabel(a.paymentLocation)}</div>`
               : ""
           }</td>
           <td>${WPCalc.formatHKD(a.revenue)}</td>
           <td>${WPCalc.formatHKD(WPCalc.laborTotal(a) + Number(a.directCosts || 0))}</td>
-          <td><strong>${WPCalc.formatHKD(net)}</strong>${a.status === "tentative" ? `<div style="font-size:0.72rem;color:var(--hold)">唔計入實際利潤</div>` : ""}</td>
-          <td><button type="button" class="btn sm" data-act="${a.id}">詳情</button></td>
+          <td><strong>${WPCalc.formatHKD(net)}</strong>${st === "tentative" ? `<div style="font-size:0.72rem;color:var(--hold)">唔計入實際利潤</div>` : ""}</td>
+          <td><button type="button" class="btn sm" data-act="${escapeAttr(a.id)}">詳情</button></td>
         </tr>`;
       })
       .join("");
@@ -268,10 +279,10 @@
               ${c.rows
                 .map(
                   (r) => `<tr>
-                  <td>${r.date}</td>
-                  <td>${escapeHtml(r.activityName)}${r.attribution === "exclusive" ? ' <span class="badge exclusive">獨得</span>' : ""}</td>
-                  <td>${r.startTime || ""}–${r.endTime || ""}</td>
-                  <td><span class="badge ${r.status}">${statusLabel(r.status)}</span></td>
+                  <td>${escapeHtml(r.date)}</td>
+                  <td>${escapeHtml(r.activityName)}${safeToken(r.attribution, ATTR_OK) === "exclusive" ? ' <span class="badge exclusive">獨得</span>' : ""}</td>
+                  <td>${escapeHtml(r.startTime || "")}–${escapeHtml(r.endTime || "")}</td>
+                  <td><span class="badge ${safeToken(r.status, STATUS_OK)}">${statusLabel(safeToken(r.status, STATUS_OK))}</span></td>
                   <td>${WPCalc.formatHKD(r.wage)}</td>
                 </tr>`
                 )
@@ -312,20 +323,20 @@
               <td style="color:${e.type === "income" ? "var(--brand)" : "var(--danger)"}">${e.type === "income" ? "+" : "-"}${WPCalc.formatHKD(e.amount)}</td>
               <td>${
                 e.type === "expense"
-                  ? `<span class="badge ${e.paymentStatus === "paid" ? "paid" : "pending"}">${e.paymentStatus === "paid" ? "已支付" : "待出糧"}</span>`
+                  ? `<span class="badge ${safeToken(e.paymentStatus, PAY_OK) || "pending"}">${safeToken(e.paymentStatus, PAY_OK) === "paid" ? "已支付" : "待出糧"}</span>`
                   : "—"
               }</td>
               <td>${src}</td>
               <td>
                 ${
                   e.autoSynced
-                    ? `<button type="button" class="btn sm" data-edit-auto="${e.activityId}">睇活動</button>`
-                    : `<button type="button" class="btn sm" data-edit-led="${e.id}">編輯</button>
-                       <button type="button" class="btn sm danger" data-del-led="${e.id}">刪</button>`
+                    ? `<button type="button" class="btn sm" data-edit-auto="${escapeAttr(e.activityId || "")}">睇活動</button>`
+                    : `<button type="button" class="btn sm" data-edit-led="${escapeAttr(e.id)}">編輯</button>
+                       <button type="button" class="btn sm danger" data-del-led="${escapeAttr(e.id)}">刪</button>`
                 }
                 ${
                   e.type === "expense" && e.paymentSource !== "exclusive_internal" && e.paymentSource !== "private"
-                    ? `<button type="button" class="btn sm" data-toggle-pay="${e.id}">${e.paymentStatus === "paid" ? "標待出糧" : "標已支付"}</button>`
+                    ? `<button type="button" class="btn sm" data-toggle-pay="${escapeAttr(e.id)}">${safeToken(e.paymentStatus, PAY_OK) === "paid" ? "標待出糧" : "標已支付"}</button>`
                     : ""
                 }
               </td>
@@ -363,7 +374,7 @@
     $("#settlementCards").innerHTML = cards
       .map((c) => {
         const sh = c.shareholder;
-        return `<div class="shareholder-card" data-sh="${sh.id}">
+        return `<div class="shareholder-card" data-sh="${escapeAttr(sh.id)}">
           <h3>${escapeHtml(sh.name)}</h3>
           <div class="share-pct">佔股 ${sh.sharePercent}%</div>
           <div class="metric-row">
@@ -385,9 +396,9 @@
           }
           <div class="metric-row"><div><strong>合計應付</strong></div><div class="n">${WPCalc.formatHKD(c.totalPayable)}</div></div>
           <div class="withdraw-actions">
-            <button type="button" class="btn primary sm" data-withdraw="dividend" data-sh="${sh.id}" ${c.dividendDue <= 0 ? "disabled" : ""}>提取公數分紅（${WPCalc.formatHKD(c.dividendDue)}）</button>
-            <button type="button" class="btn sm" data-withdraw="exclusive" data-sh="${sh.id}" ${c.exclusiveDue <= 0 ? "disabled" : ""}>結算個人獨得利潤（${WPCalc.formatHKD(c.exclusiveDue)}）</button>
-            <button type="button" class="btn sm" data-withdraw="reimbursement" data-sh="${sh.id}" ${c.reimburseDue <= 0 ? "disabled" : ""}>退還代墊款（${WPCalc.formatHKD(c.reimburseDue)}）</button>
+            <button type="button" class="btn primary sm" data-withdraw="dividend" data-sh="${escapeAttr(sh.id)}" ${c.dividendDue <= 0 ? "disabled" : ""}>提取公數分紅（${WPCalc.formatHKD(c.dividendDue)}）</button>
+            <button type="button" class="btn sm" data-withdraw="exclusive" data-sh="${escapeAttr(sh.id)}" ${c.exclusiveDue <= 0 ? "disabled" : ""}>結算個人獨得利潤（${WPCalc.formatHKD(c.exclusiveDue)}）</button>
+            <button type="button" class="btn sm" data-withdraw="reimbursement" data-sh="${escapeAttr(sh.id)}" ${c.reimburseDue <= 0 ? "disabled" : ""}>退還代墊款（${WPCalc.formatHKD(c.reimburseDue)}）</button>
           </div>
         </div>`;
       })
@@ -417,8 +428,8 @@
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:start">
           <div><strong>${escapeHtml(s.name)}</strong><div class="share-pct">佔股 ${s.sharePercent}%</div></div>
           <div>
-            <button class="btn sm" data-edit-sh="${s.id}">編輯</button>
-            <button class="btn sm danger" data-del-sh="${s.id}">刪除</button>
+            <button class="btn sm" data-edit-sh="${escapeAttr(s.id)}">編輯</button>
+            <button class="btn sm danger" data-del-sh="${escapeAttr(s.id)}">刪除</button>
           </div>
         </div>
       </div>`
@@ -432,8 +443,8 @@
           <div style="display:flex;justify-content:space-between;gap:8px;align-items:start">
             <div><strong>${escapeHtml(s.name)}</strong><div class="share-pct">${sh ? "股東：" + escapeHtml(sh.name) : "協助人員／兼職"}</div></div>
             <div>
-              <button class="btn sm" data-edit-st="${s.id}">編輯</button>
-              <button class="btn sm danger" data-del-st="${s.id}">刪除</button>
+              <button class="btn sm" data-edit-st="${escapeAttr(s.id)}">編輯</button>
+              <button class="btn sm danger" data-del-st="${escapeAttr(s.id)}">刪除</button>
             </div>
           </div>
         </div>`;
@@ -444,12 +455,25 @@
   // ---------- Settings ----------
   function renderSettings(data) {
     $("#companyNameInput").value = data.settings?.companyName || "WorkPanda";
-    $("#storageMode").value = store.getMode();
-    const configured = window.isFirebaseConfigured && window.isFirebaseConfigured();
-    $("#firebaseStatus").textContent = configured
-      ? "偵測到 Firebase 設定。切換雲端前請先完成 Auth 與 Firestore rules；發佈版預設仍用本機儲存。"
-      : "發佈版未嵌入 Firebase 憑證；資料存於本機 LocalStorage，可用 JSON 匯出／匯入備份。";
-    $("#firebaseStatus").style.color = configured ? "var(--hold)" : "var(--muted)";
+    $("#storageMode").value = store.getMode() === "cloud" ? "cloud" : "local";
+    const tokenInput = $("#syncTokenInput");
+    if (tokenInput && document.activeElement !== tokenInput) {
+      tokenInput.value = store.getSyncToken();
+    }
+    const status = $("#firebaseStatus");
+    if (!status) return;
+    if (store.getMode() === "cloud" && store.cloudReady) {
+      status.textContent = store.sampleData
+        ? "已連上雲端 API（本機示範資料庫）。發佈後會用正式 Postgres，各裝置即時同步同一份資料。"
+        : "已連上雲端資料庫，各裝置約每 2.5 秒自動同步。";
+      status.style.color = "var(--brand)";
+    } else if (store.lastError) {
+      status.textContent = store.lastError;
+      status.style.color = "var(--hold)";
+    } else {
+      status.textContent = "本機模式：資料只存此瀏覽器。選「雲端同步」以跨裝置共用。";
+      status.style.color = "var(--muted)";
+    }
   }
 
   // ---------- Modal: Activity ----------
@@ -511,14 +535,14 @@
       box.innerHTML = assignments
         .map((as, idx) => {
           const opts = (data.staff || [])
-            .map((s) => `<option value="${s.id}" ${s.id === as.staffId ? "selected" : ""}>${escapeHtml(s.name)}</option>`)
+            .map((s) => `<option value="${escapeAttr(s.id)}" ${s.id === as.staffId ? "selected" : ""}>${escapeHtml(s.name)}</option>`)
             .join("");
-          return `<div class="assignment-row" data-as-idx="${idx}">
+          return `<div class="assignment-row" data-as-idx="${Number(idx)}">
             <label class="field">人員<select data-as-field="staffId">${opts}</select></label>
-            <label class="field">薪金（HK$）<input type="number" min="0" step="50" data-as-field="wage" value="${as.wage || 0}"></label>
-            <label class="field">開始<input type="time" data-as-field="startTime" value="${as.startTime || ""}"></label>
-            <label class="field">結束<input type="time" data-as-field="endTime" value="${as.endTime || ""}"></label>
-            <button type="button" class="btn sm danger" data-as-del="${idx}">刪</button>
+            <label class="field">薪金（HK$）<input type="number" min="0" step="50" data-as-field="wage" value="${Number(as.wage || 0)}"></label>
+            <label class="field">開始<input type="time" data-as-field="startTime" value="${escapeAttr(as.startTime || "")}"></label>
+            <label class="field">結束<input type="time" data-as-field="endTime" value="${escapeAttr(as.endTime || "")}"></label>
+            <button type="button" class="btn sm danger" data-as-del="${Number(idx)}">刪</button>
           </div>`;
         })
         .join("");
@@ -660,7 +684,7 @@
     const cur = sel.value;
     sel.innerHTML =
       (withAll ? `<option value="all">全部人員</option>` : "") +
-      (data.staff || []).map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+      (data.staff || []).map((s) => `<option value="${escapeAttr(s.id)}">${escapeHtml(s.name)}</option>`).join("");
     if (cur) sel.value = cur;
   }
 
@@ -668,7 +692,7 @@
     if (!sel) return;
     sel.innerHTML =
       (withEmpty ? `<option value="">— 非股東 —</option>` : `<option value="">請選擇</option>`) +
-      (data.shareholders || []).map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+      (data.shareholders || []).map((s) => `<option value="${escapeAttr(s.id)}">${escapeHtml(s.name)}</option>`).join("");
   }
 
   function populateFilterStaff(data) {
@@ -687,8 +711,23 @@
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
+
+  function escapeAttr(s) {
+    return escapeHtml(s).replace(/`/g, "&#96;");
+  }
+
+  /** Only allow known enum tokens into class names / data attributes */
+  function safeToken(value, allowed) {
+    const v = String(value ?? "");
+    return allowed.has(v) ? v : "";
+  }
+
+  const STATUS_OK = new Set(["confirmed", "tentative"]);
+  const ATTR_OK = new Set(["company", "exclusive"]);
+  const PAY_OK = new Set(["paid", "pending"]);
 
   // ---------- Events ----------
   function bindEvents() {
@@ -936,19 +975,22 @@
 
     // settings / export
     $("#btnSaveSettings").addEventListener("click", async () => {
-      const mode = $("#storageMode").value;
+      const mode = $("#storageMode").value === "cloud" ? "cloud" : "local";
+      store.setSyncToken($("#syncTokenInput")?.value || "");
       await store.update((d) => {
         d.settings.companyName = $("#companyNameInput").value.trim() || "WorkPanda";
       });
       try {
         if (mode !== store.getMode()) {
           await store.setMode(mode);
+        } else if (mode === "cloud") {
+          await store._pullCloud(true);
         }
         toast("設定已儲存");
         renderAll();
       } catch (err) {
         toast(err.message);
-        $("#storageMode").value = store.getMode();
+        $("#storageMode").value = store.getMode() === "cloud" ? "cloud" : "local";
       }
     });
 

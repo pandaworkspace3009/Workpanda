@@ -1,9 +1,12 @@
 /**
- * WorkPanda 資料層：LocalStorage（預設）+ Firebase Firestore 切換
+ * WorkPanda 資料層：雲端 Postgres API 即時同步（跨裝置）+ LocalStorage 後備
  */
 (function (global) {
   const STORAGE_KEY = "workpanda_v2_data";
   const MODE_KEY = "workpanda_v2_mode";
+  const TOKEN_KEY = "workpanda_sync_token";
+  const API_URL = "/api/workspace";
+  const POLL_MS = 2500;
 
   function uid(prefix) {
     return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -35,10 +38,7 @@
 
     return {
       version: 2,
-      settings: {
-        bufferAmount: 20000,
-        companyName: "WorkPanda",
-      },
+      settings: { bufferAmount: 20000, companyName: "WorkPanda" },
       shareholders: [
         { id: sh1, name: "陳大文", sharePercent: 60 },
         { id: sh2, name: "李小美", sharePercent: 40 },
@@ -142,24 +142,32 @@
   class WorkPandaStore {
     constructor() {
       this.data = null;
-      this.mode = this._resolveInitialMode();
+      this.mode = "cloud";
       this.listeners = new Set();
-      this.firebaseReady = false;
-      this._unsub = null;
+      this.updatedAt = null;
+      this.sampleData = true;
+      this.cloudReady = false;
+      this.lastError = null;
+      this._pollTimer = null;
+      this._saving = false;
     }
 
-    _isConfigured() {
-      return Boolean(global.isFirebaseConfigured && global.isFirebaseConfigured());
+    getSyncToken() {
+      return localStorage.getItem(TOKEN_KEY) || "";
     }
 
-    /**
-     * 發佈版預設本機儲存。即使有人填入憑證，亦唔會自動切雲端
-     *（避免未設 Auth 就寫入 Firestore）。用戶可於設定手動切換。
-     */
-    _resolveInitialMode() {
-      const saved = localStorage.getItem(MODE_KEY);
-      if (saved === "local" || saved === "firebase") return saved;
-      return "local";
+    setSyncToken(token) {
+      const t = String(token || "").trim();
+      if (t) localStorage.setItem(TOKEN_KEY, t);
+      else localStorage.removeItem(TOKEN_KEY);
+    }
+
+    _headers(json) {
+      const h = {};
+      if (json) h["content-type"] = "application/json";
+      const token = this.getSyncToken();
+      if (token) h["x-workpanda-token"] = token;
+      return h;
     }
 
     subscribe(fn) {
@@ -182,23 +190,95 @@
     }
 
     async init() {
-      this.mode = this._resolveInitialMode();
-      if (this.mode === "firebase") {
-        if (this._isConfigured() && global.firebase) {
-          try {
-            await this._initFirebase();
-            localStorage.setItem(MODE_KEY, "firebase");
-            return;
-          } catch (e) {
-            console.warn("Firebase 初始化失敗，回退 LocalStorage", e);
-          }
+      const saved = localStorage.getItem(MODE_KEY);
+      this.mode = saved === "local" ? "local" : "cloud";
+      if (this.mode === "cloud") {
+        try {
+          await this._pullCloud(true);
+          this._startPoll();
+          return;
+        } catch (e) {
+          console.warn("雲端同步失敗，回退本機", e);
+          this.lastError = e.message || String(e);
+          this.mode = "local";
+          localStorage.setItem(MODE_KEY, "local");
         }
-        // 無憑證／無 SDK／初始化失敗 → 本機
-        this.mode = "local";
-        localStorage.setItem(MODE_KEY, "local");
       }
-      if (!localStorage.getItem(MODE_KEY)) localStorage.setItem(MODE_KEY, "local");
       this._loadLocal();
+    }
+
+    _startPoll() {
+      this._stopPoll();
+      this._pollTimer = setInterval(() => {
+        if (this.mode !== "cloud" || this._saving) return;
+        this._pullCloud(false).catch(() => {});
+      }, POLL_MS);
+    }
+
+    _stopPoll() {
+      if (this._pollTimer) {
+        clearInterval(this._pollTimer);
+        this._pollTimer = null;
+      }
+    }
+
+    async _pullCloud(force) {
+      const res = await fetch(API_URL, {
+        method: "GET",
+        headers: this._headers(false),
+        cache: "no-store",
+      });
+      if (res.status === 401) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.hint || "未授權：請登入 Cursor（Private/Team）或於設定輸入同步密碼");
+      }
+      if (!res.ok) throw new Error(`雲端讀取失敗 (${res.status})`);
+      const body = await res.json();
+      this.cloudReady = true;
+      this.sampleData = Boolean(body.sampleData);
+      this.lastError = null;
+      if (!force && body.updatedAt && body.updatedAt === this.updatedAt) return;
+      this.updatedAt = body.updatedAt;
+      this.data = body.data;
+      this._ensureLedgerSync();
+      // mirror for offline
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+      this.notify();
+    }
+
+    async _pushCloud() {
+      this._saving = true;
+      try {
+        const res = await fetch(API_URL, {
+          method: "PUT",
+          headers: this._headers(true),
+          cache: "no-store",
+          body: JSON.stringify({
+            data: this.data,
+            expectedUpdatedAt: this.updatedAt,
+          }),
+        });
+        if (res.status === 401) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.hint || "未授權：無法寫入雲端");
+        }
+        if (res.status === 409) {
+          const body = await res.json();
+          this.updatedAt = body.updatedAt;
+          this.data = body.data;
+          this._ensureLedgerSync();
+          this.notify();
+          throw new Error("其他裝置剛更新咗資料，已載入最新版本，請再試一次");
+        }
+        if (!res.ok) throw new Error(`雲端寫入失敗 (${res.status})`);
+        const body = await res.json();
+        this.updatedAt = body.updatedAt;
+        this.data = body.data;
+        this.sampleData = Boolean(body.sampleData);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+      } finally {
+        this._saving = false;
+      }
     }
 
     _loadLocal() {
@@ -222,52 +302,17 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
     }
 
-    async _initFirebase() {
-      if (!global.firebase) throw new Error("Firebase SDK 未載入");
-      if (!firebase.apps.length) {
-        firebase.initializeApp(global.FIREBASE_CONFIG);
-      }
-      this.db = firebase.firestore();
-      this.firebaseReady = true;
-      const docRef = this.db.collection("workpanda").doc("main");
-      const snap = await docRef.get();
-      if (!snap.exists) {
-        this.data = seedData();
-        await docRef.set(this.data);
-      } else {
-        this.data = snap.data();
-      }
-      this._ensureLedgerSync();
-      this.notify();
-      if (this._unsub) this._unsub();
-      this._unsub = docRef.onSnapshot((s) => {
-        if (s.exists) {
-          this.data = s.data();
-          this.notify();
-        }
-      });
-    }
-
     async setMode(mode) {
-      if (mode === "firebase") {
-        if (!this._isConfigured()) {
-          throw new Error("雲端同步已停用：未設定 Firebase 憑證（發佈版刻意留空）");
-        }
-        if (!global.firebase) {
-          throw new Error("Firebase SDK 未載入；請先加入 SDK 並設定 Auth + Firestore rules");
-        }
-        this.mode = "firebase";
-        localStorage.setItem(MODE_KEY, "firebase");
-        await this._initFirebase();
+      if (mode === "cloud") {
+        this.mode = "cloud";
+        localStorage.setItem(MODE_KEY, "cloud");
+        await this._pullCloud(true);
+        this._startPoll();
         return;
       }
-      if (this._unsub) {
-        this._unsub();
-        this._unsub = null;
-      }
+      this._stopPoll();
       this.mode = "local";
       localStorage.setItem(MODE_KEY, "local");
-      // 從目前記憶體資料寫入 local，方便離線繼續
       if (!this.data) this.data = seedData();
       this._saveLocal();
       this.notify();
@@ -275,19 +320,16 @@
 
     async persist() {
       this._ensureLedgerSync();
-      if (this.mode === "firebase" && this.firebaseReady) {
+      if (this.mode === "cloud") {
         this.data.updatedAt = new Date().toISOString();
-        await this.db.collection("workpanda").doc("main").set(this.data);
-      } else {
-        this._saveLocal();
+        await this._pushCloud();
+        this.notify();
+        return;
       }
+      this._saveLocal();
       this.notify();
     }
 
-    /**
-     * 自動連動：活動之直接成本與排班人工 → ledger（綁定 activityId）
-     * 獨得單成本標記 paymentSource=exclusive_internal，唔入公數
-     */
     _ensureLedgerSync() {
       if (!this.data) return;
       const acts = this.data.activities || [];
@@ -297,7 +339,6 @@
         const isExclusive = act.attribution === "exclusive";
         const labor = (act.assignments || []).reduce((s, a) => s + Number(a.wage || 0), 0);
 
-        // 直接成本
         const costId = `auto_cost_${act.id}`;
         keepIds.add(costId);
         this._upsertAutoLedger({
@@ -315,7 +356,6 @@
           tentative: act.status === "tentative",
         });
 
-        // 人工
         const laborId = `auto_labor_${act.id}`;
         keepIds.add(laborId);
         this._upsertAutoLedger({
@@ -333,7 +373,6 @@
           tentative: act.status === "tentative",
         });
 
-        // 收入（僅公數單／獨得但入公數戶口）才寫入公數現金流
         const incomeId = `auto_income_${act.id}`;
         keepIds.add(incomeId);
         const countsAsCompanyCash =
@@ -356,19 +395,16 @@
         });
       });
 
-      // 移除已刪活動的自動連動紀錄
       this.data.ledger = (this.data.ledger || []).filter((e) => {
         if (!e.autoSynced) return true;
         return keepIds.has(e.id) || (e.activityId && acts.some((a) => a.id === e.activityId));
       });
-      // 再過濾：只保留 keepIds 內之自動紀錄
       this.data.ledger = this.data.ledger.filter((e) => !e.autoSynced || keepIds.has(e.id));
     }
 
     _upsertAutoLedger(entry) {
       const list = this.data.ledger || (this.data.ledger = []);
       const idx = list.findIndex((e) => e.id === entry.id);
-      // 保留用戶已改過的出糧狀態／付款來源（非 exclusive_internal）
       if (idx >= 0) {
         const prev = list[idx];
         list[idx] = {
@@ -388,7 +424,6 @@
       }
     }
 
-    // --- CRUD helpers ---
     get() {
       return this.data;
     }
