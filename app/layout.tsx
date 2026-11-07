@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export const metadata = {
   title: "WorkPanda",
   description: "業務日曆・排班・股東結算",

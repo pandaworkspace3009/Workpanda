@@ -366,7 +366,7 @@
             <div style="font-size:1.2rem;font-weight:700;color:var(--brand)">${WPCalc.formatHKD(k.distributablePool)}</div>
           </div>
           <label class="field" style="min-width:160px">調整 Buffer（HK$）
-            <input type="number" id="bufferInput" value="${data.settings.bufferAmount || 0}" min="0" step="100">
+            <input type="number" id="bufferInput" value="${escapeAttr(String(Number(data.settings.bufferAmount || 0)))}" min="0" step="100">
           </label>
         </div>
       </div>`;
@@ -376,7 +376,7 @@
         const sh = c.shareholder;
         return `<div class="shareholder-card" data-sh="${escapeAttr(sh.id)}">
           <h3>${escapeHtml(sh.name)}</h3>
-          <div class="share-pct">佔股 ${sh.sharePercent}%</div>
+          <div class="share-pct">佔股 ${escapeHtml(String(sh.sharePercent ?? ""))}%</div>
           <div class="metric-row">
             <div>公數按股分紅應得額<span class="hint">按佔股比例計算，已扣已提領</span></div>
             <div class="n">${WPCalc.formatHKD(c.dividendDue)}</div>
@@ -413,7 +413,7 @@
             const sh = (data.shareholders || []).find((x) => x.id === s.shareholderId);
             const type =
               s.type === "dividend" ? "公數分紅" : s.type === "exclusive" ? "獨得結算" : "退還代墊";
-            return `<tr><td>${s.date}</td><td>${escapeHtml(sh?.name || "")}</td><td>${type}</td><td>${WPCalc.formatHKD(s.amount)}</td><td>${escapeHtml(s.note || "")}</td></tr>`;
+            return `<tr><td>${escapeHtml(s.date || "")}</td><td>${escapeHtml(sh?.name || "")}</td><td>${type}</td><td>${WPCalc.formatHKD(s.amount)}</td><td>${escapeHtml(s.note || "")}</td></tr>`;
           })
           .join("")}
       </tbody></table>`
@@ -426,7 +426,7 @@
       .map(
         (s) => `<div class="staff-card" style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:start">
-          <div><strong>${escapeHtml(s.name)}</strong><div class="share-pct">佔股 ${s.sharePercent}%</div></div>
+          <div><strong>${escapeHtml(s.name)}</strong><div class="share-pct">佔股 ${escapeHtml(String(s.sharePercent ?? ""))}%</div></div>
           <div>
             <button class="btn sm" data-edit-sh="${escapeAttr(s.id)}">編輯</button>
             <button class="btn sm danger" data-del-sh="${escapeAttr(s.id)}">刪除</button>

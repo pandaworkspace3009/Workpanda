@@ -2,6 +2,7 @@ import { requireAppAccess } from "../../../src/lib/auth";
 import { getOrCreateWorkspace, saveWorkspace } from "../../../src/lib/workspace";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const noStore = { "cache-control": "private, no-store" };
 /** Max JSON body size for workspace PUT (bytes). */
