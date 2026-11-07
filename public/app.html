@@ -234,8 +234,8 @@
           </div>
           <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:0.85rem;color:var(--muted)">
             <strong style="color:var(--ink)">跨裝置同步</strong>
-            <p style="margin:8px 0 0">資料存於 App 專用 Postgres；需 Private／Team 發佈，各裝置用 Cursor 登入後即時共用同一份資料。</p>
-            <p style="margin:8px 0 0">Public 發佈唔會開雲端 API（保護財務資料）；未登入時會自動用本機示範／後備資料。</p>
+            <p style="margin:8px 0 0">雲端同步只限 Private／Team：各裝置用 Cursor 登入後共用同一租戶工作區（Team 按團隊、Private 按本 App）。</p>
+            <p style="margin:8px 0 0">Public 發佈會拒絕雲端財務 API；瀏覽器會自動用本機後備資料，唔會讀寫 Postgres。</p>
           </div>
         </div>
       </div>

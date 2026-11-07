@@ -1,7 +1,5 @@
 import { sql } from "./db";
 
-export const WORKSPACE_ID = "main";
-
 export type WorkspacePayload = Record<string, unknown> & {
   version?: number;
   updatedAt?: string;
@@ -139,23 +137,27 @@ type WorkspaceRow = {
   updated_by: string | null;
 };
 
-export async function getOrCreateWorkspace(): Promise<{
+export async function getOrCreateWorkspace(workspaceId: string): Promise<{
+  id: string;
   payload: WorkspacePayload;
   updatedAt: string;
   updatedBy: string | null;
 }> {
+  if (!workspaceId || workspaceId === "main") {
+    throw new Error("invalid_workspace_id");
+  }
   const rows = await sql<WorkspaceRow>(
     "select id, payload, updated_at, updated_by from workspace where id = $1",
-    [WORKSPACE_ID],
+    [workspaceId],
   );
   if (rows.length === 0) {
     const payload = seedWorkspace();
     const updatedAt = payload.updatedAt || new Date().toISOString();
     await sql(
       "insert into workspace (id, payload, updated_at, updated_by) values ($1, $2::jsonb, $3::timestamptz, $4)",
-      [WORKSPACE_ID, JSON.stringify(payload), updatedAt, "system:seed"],
+      [workspaceId, JSON.stringify(payload), updatedAt, "system:seed"],
     );
-    return { payload, updatedAt, updatedBy: "system:seed" };
+    return { id: workspaceId, payload, updatedAt, updatedBy: "system:seed" };
   }
   const row = rows[0];
   const updatedAt =
@@ -164,15 +166,19 @@ export async function getOrCreateWorkspace(): Promise<{
       : new Date(row.updated_at).toISOString();
   const payload =
     typeof row.payload === "string" ? JSON.parse(row.payload) : row.payload;
-  return { payload, updatedAt, updatedBy: row.updated_by };
+  return { id: row.id, payload, updatedAt, updatedBy: row.updated_by };
 }
 
 export async function saveWorkspace(
+  workspaceId: string,
   payload: WorkspacePayload,
   actor: string,
   expectedUpdatedAt?: string | null,
-): Promise<{ payload: WorkspacePayload; updatedAt: string } | { conflict: true; payload: WorkspacePayload; updatedAt: string }> {
-  const current = await getOrCreateWorkspace();
+): Promise<
+  | { payload: WorkspacePayload; updatedAt: string }
+  | { conflict: true; payload: WorkspacePayload; updatedAt: string }
+> {
+  const current = await getOrCreateWorkspace(workspaceId);
   if (expectedUpdatedAt && expectedUpdatedAt !== current.updatedAt) {
     return { conflict: true, payload: current.payload, updatedAt: current.updatedAt };
   }
@@ -185,7 +191,7 @@ export async function saveWorkspace(
        payload = excluded.payload,
        updated_at = excluded.updated_at,
        updated_by = excluded.updated_by`,
-    [WORKSPACE_ID, JSON.stringify(next), updatedAt, actor],
+    [workspaceId, JSON.stringify(next), updatedAt, actor],
   );
   return { payload: next, updatedAt };
 }

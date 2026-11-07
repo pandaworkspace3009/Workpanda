@@ -460,14 +460,14 @@
     if (!status) return;
     if (store.getMode() === "cloud" && store.cloudReady) {
       status.textContent = store.sampleData
-        ? "已連上雲端 API（本機示範庫）。正式環境請用 Private／Team 發佈，各裝置 Cursor 登入後即時同步。"
-        : "已連上雲端資料庫（需 Cursor 登入），各裝置約每 2.5 秒自動同步。";
+        ? "已連上雲端 API（本機示範庫）。請將 App 設為 Private／Team，各裝置 Cursor 登入後即時同步。"
+        : "已連上租戶雲端工作區（Private／Team + Cursor 登入），約每 2.5 秒自動同步。";
       status.style.color = "var(--brand)";
     } else if (store.lastError) {
       status.textContent = store.lastError;
       status.style.color = "var(--hold)";
     } else {
-      status.textContent = "本機模式：資料只存此瀏覽器。雲端同步需 Private／Team 發佈 + Cursor 登入。";
+      status.textContent = "本機模式：資料只存此瀏覽器。雲端同步需 Private／Team，並拒絕 Public 讀寫財務庫。";
       status.style.color = "var(--muted)";
     }
   }

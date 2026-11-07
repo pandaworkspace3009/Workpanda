@@ -11,10 +11,11 @@ export async function GET(request: Request) {
   const access = await requireAppAccess(request);
   if (access instanceof Response) return access;
 
-  const ws = await getOrCreateWorkspace();
+  const ws = await getOrCreateWorkspace(access.workspaceId);
   return Response.json(
     {
-      id: "main",
+      id: ws.id,
+      visibility: access.visibility,
       updatedAt: ws.updatedAt,
       updatedBy: ws.updatedBy,
       data: ws.payload,
@@ -56,6 +57,7 @@ export async function PUT(request: Request) {
   }
 
   const result = await saveWorkspace(
+    access.workspaceId,
     body.data as Record<string, unknown>,
     access.actor,
     body.expectedUpdatedAt ?? null,
@@ -74,7 +76,8 @@ export async function PUT(request: Request) {
 
   return Response.json(
     {
-      id: "main",
+      id: access.workspaceId,
+      visibility: access.visibility,
       updatedAt: result.updatedAt,
       data: result.payload,
       sampleData: !process.env.DATABASE_URL?.trim(),
