@@ -4,10 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WorkPanda — 業務日曆・排班・股東結算</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/app.css" />
 </head>
 <body>
@@ -217,8 +213,8 @@
           </label>
           <label class="field" style="margin-top:12px">資料儲存模式
             <select id="storageMode">
-              <option value="firebase">雲端同步（Firebase Firestore）— 有憑證時預設</option>
-              <option value="local">本機測試（LocalStorage）— 離線／後備</option>
+              <option value="local">本機（LocalStorage）— 預設／離線</option>
+              <option value="firebase">雲端同步（Firestore）— 需自行設定 Auth + 憑證</option>
             </select>
           </label>
           <p id="firebaseStatus" style="font-size:0.82rem;margin:10px 0 0"></p>
@@ -237,17 +233,9 @@
             <input type="file" id="importFile" accept="application/json,.json" hidden />
           </div>
           <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:0.85rem;color:var(--muted)">
-            <strong style="color:var(--ink)">Firebase 設定</strong>
-            <p style="margin:8px 0 0">編輯專案根目錄 <code>firebase-config.js</code>，填入：</p>
-            <ul style="margin:8px 0 0;padding-left:18px">
-              <li><code>apiKey</code></li>
-              <li><code>authDomain</code></li>
-              <li><code>projectId</code></li>
-              <li><code>storageBucket</code></li>
-              <li><code>messagingSenderId</code></li>
-              <li><code>appId</code></li>
-            </ul>
-            <p style="margin:8px 0 0">Firestore 文件路徑：<code>workpanda/main</code>（單一文件存放整個工作區資料）。</p>
+            <strong style="color:var(--ink)">儲存說明</strong>
+            <p style="margin:8px 0 0">發佈版預設本機 LocalStorage；多裝置可用 JSON 匯出／匯入同步。</p>
+            <p style="margin:8px 0 0">雲端 Firestore 已停用（不嵌入正式憑證）。若要自架啟用，需自行加入 Firebase Auth、Firestore rules，以及 SDK／設定檔。</p>
           </div>
         </div>
       </div>
@@ -400,9 +388,7 @@
 
   <div class="toast" id="toast" role="status"></div>
 
-  <!-- Firebase SDK（僅雲端模式需要；本機模式可忽略載入失敗） -->
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <!-- 發佈版不載入 Firebase SDK／正式憑證；本機 LocalStorage 即可運作 -->
   <script src="firebase-config.js"></script>
   <script src="js/store.js"></script>
   <script src="js/calc.js"></script>

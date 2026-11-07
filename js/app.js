@@ -157,9 +157,11 @@
         ? (data.shareholders || []).find((s) => s.id === a.exclusiveShareholderId)?.name || ""
         : "";
     const icon = a.attribution === "exclusive" ? "◆" : "●";
-    return `<button type="button" class="event-chip ${a.status} ${a.attribution}" data-act="${a.id}" title="${a.name}">
-      ${icon} ${a.name}
-      <span class="meta">${a.startTime || ""}${sh ? " · " + sh : ""}</span>
+    const name = escapeHtml(a.name);
+    const meta = escapeHtml(`${a.startTime || ""}${sh ? " · " + sh : ""}`);
+    return `<button type="button" class="event-chip ${a.status} ${a.attribution}" data-act="${escapeHtml(a.id)}" title="${name}">
+      ${icon} ${name}
+      <span class="meta">${meta}</span>
     </button>`;
   }
 
@@ -192,7 +194,7 @@
         const top = Math.max(0, (sh - 8) * 48);
         const height = Math.max(36, (Math.max(eh, sh + 1) - sh) * 48);
         const cls = `week-event event-chip ${a.status} ${a.attribution}`;
-        html += `<button type="button" class="${cls}" data-act="${a.id}" style="top:${top}px;height:${height}px">${a.name}<span class="meta">${a.startTime || ""}–${a.endTime || ""}</span></button>`;
+        html += `<button type="button" class="${cls}" data-act="${escapeHtml(a.id)}" style="top:${top}px;height:${height}px">${escapeHtml(a.name)}<span class="meta">${escapeHtml(a.startTime || "")}–${escapeHtml(a.endTime || "")}</span></button>`;
       });
       html += `</div></div>`;
     }
@@ -297,14 +299,14 @@
               e.paymentSource === "company"
                 ? "公數支付"
                 : e.paymentSource === "shareholder"
-                  ? `股東代墊${sh ? "・" + sh.name : ""}`
+                  ? `股東代墊${sh ? "・" + escapeHtml(sh.name) : ""}`
                   : e.paymentSource === "exclusive_internal"
                     ? "獨得單內部成本（唔入公數）"
                     : e.paymentSource === "private"
                       ? "私人"
-                      : e.paymentSource || "—";
+                      : escapeHtml(e.paymentSource || "—");
             return `<tr class="${e.tentative ? "muted" : ""}">
-              <td>${e.date || ""}${e.autoSynced ? ' <span class="badge auto">自動連動</span>' : ""}${e.tentative ? ' <span class="badge tentative">Hold</span>' : ""}</td>
+              <td>${escapeHtml(e.date || "")}${e.autoSynced ? ' <span class="badge auto">自動連動</span>' : ""}${e.tentative ? ' <span class="badge tentative">Hold</span>' : ""}</td>
               <td>${e.type === "income" ? "收入" : "支出"}</td>
               <td>${escapeHtml(e.category || "")}<div style="color:var(--muted);font-size:0.78rem">${escapeHtml(e.description || "")}</div></td>
               <td style="color:${e.type === "income" ? "var(--brand)" : "var(--danger)"}">${e.type === "income" ? "+" : "-"}${WPCalc.formatHKD(e.amount)}</td>
@@ -445,9 +447,9 @@
     $("#storageMode").value = store.getMode();
     const configured = window.isFirebaseConfigured && window.isFirebaseConfigured();
     $("#firebaseStatus").textContent = configured
-      ? "已載入 Firebase 憑證。有設定時預設使用雲端同步（Firestore workpanda/main）；可隨時切回 LocalStorage。"
-      : "未設定 Firebase 憑證。請編輯 firebase-config.js 填入 apiKey / projectId / appId。";
-    $("#firebaseStatus").style.color = configured ? "var(--brand)" : "var(--hold)";
+      ? "偵測到 Firebase 設定。切換雲端前請先完成 Auth 與 Firestore rules；發佈版預設仍用本機儲存。"
+      : "發佈版未嵌入 Firebase 憑證；資料存於本機 LocalStorage，可用 JSON 匯出／匯入備份。";
+    $("#firebaseStatus").style.color = configured ? "var(--hold)" : "var(--muted)";
   }
 
   // ---------- Modal: Activity ----------

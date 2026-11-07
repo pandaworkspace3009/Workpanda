@@ -152,11 +152,14 @@
       return Boolean(global.isFirebaseConfigured && global.isFirebaseConfigured());
     }
 
-    /** 有完整 Firebase 憑證時預設雲端同步；用戶曾選 LocalStorage 則尊重 */
+    /**
+     * 發佈版預設本機儲存。即使有人填入憑證，亦唔會自動切雲端
+     *（避免未設 Auth 就寫入 Firestore）。用戶可於設定手動切換。
+     */
     _resolveInitialMode() {
       const saved = localStorage.getItem(MODE_KEY);
       if (saved === "local" || saved === "firebase") return saved;
-      return this._isConfigured() ? "firebase" : "local";
+      return "local";
     }
 
     subscribe(fn) {
@@ -181,7 +184,7 @@
     async init() {
       this.mode = this._resolveInitialMode();
       if (this.mode === "firebase") {
-        if (this._isConfigured()) {
+        if (this._isConfigured() && global.firebase) {
           try {
             await this._initFirebase();
             localStorage.setItem(MODE_KEY, "firebase");
@@ -190,7 +193,7 @@
             console.warn("Firebase 初始化失敗，回退 LocalStorage", e);
           }
         }
-        // 雲端不可用時回退本機；用戶可於設定再切回 Firestore
+        // 無憑證／無 SDK／初始化失敗 → 本機
         this.mode = "local";
         localStorage.setItem(MODE_KEY, "local");
       }
@@ -248,7 +251,10 @@
     async setMode(mode) {
       if (mode === "firebase") {
         if (!this._isConfigured()) {
-          throw new Error("請先於 firebase-config.js 填入 Firebase 憑證");
+          throw new Error("雲端同步已停用：未設定 Firebase 憑證（發佈版刻意留空）");
+        }
+        if (!global.firebase) {
+          throw new Error("Firebase SDK 未載入；請先加入 SDK 並設定 Auth + Firestore rules");
         }
         this.mode = "firebase";
         localStorage.setItem(MODE_KEY, "firebase");
