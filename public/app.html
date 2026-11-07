@@ -217,9 +217,6 @@
               <option value="local">本機（LocalStorage）— 離線後備</option>
             </select>
           </label>
-          <label class="field" style="margin-top:12px">同步密碼（選填）
-            <input type="password" id="syncTokenInput" placeholder="若 App 為 Public，請輸入與 WORKPANDA_SYNC_TOKEN 相同嘅密碼" autocomplete="off" />
-          </label>
           <p id="firebaseStatus" style="font-size:0.82rem;margin:10px 0 0"></p>
           <div class="form-actions" style="justify-content:flex-start">
             <button type="button" class="btn primary" id="btnSaveSettings">儲存設定</button>
@@ -237,8 +234,8 @@
           </div>
           <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:0.85rem;color:var(--muted)">
             <strong style="color:var(--ink)">跨裝置同步</strong>
-            <p style="margin:8px 0 0">資料存於 App 專用 Postgres；各裝置開啟同一網址即可即時共用。</p>
-            <p style="margin:8px 0 0">Private／Team 發佈會用 Cursor 登入保護；Public 發佈請在 Cursor Secrets 設定同步密碼，並於每部裝置輸入相同密碼。</p>
+            <p style="margin:8px 0 0">資料存於 App 專用 Postgres；需 Private／Team 發佈，各裝置用 Cursor 登入後即時共用同一份資料。</p>
+            <p style="margin:8px 0 0">Public 發佈唔會開雲端 API（保護財務資料）；未登入時會自動用本機示範／後備資料。</p>
           </div>
         </div>
       </div>

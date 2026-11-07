@@ -4,7 +4,6 @@
 (function (global) {
   const STORAGE_KEY = "workpanda_v2_data";
   const MODE_KEY = "workpanda_v2_mode";
-  const TOKEN_KEY = "workpanda_sync_token";
   const API_URL = "/api/workspace";
   const POLL_MS = 2500;
 
@@ -152,21 +151,10 @@
       this._saving = false;
     }
 
-    getSyncToken() {
-      return localStorage.getItem(TOKEN_KEY) || "";
-    }
-
-    setSyncToken(token) {
-      const t = String(token || "").trim();
-      if (t) localStorage.setItem(TOKEN_KEY, t);
-      else localStorage.removeItem(TOKEN_KEY);
-    }
 
     _headers(json) {
       const h = {};
       if (json) h["content-type"] = "application/json";
-      const token = this.getSyncToken();
-      if (token) h["x-workpanda-token"] = token;
       return h;
     }
 
@@ -230,7 +218,7 @@
       });
       if (res.status === 401) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.hint || "未授權：請登入 Cursor（Private/Team）或於設定輸入同步密碼");
+        throw new Error(body.hint || "未授權：請以 Private／Team 發佈並用 Cursor 登入各裝置");
       }
       if (!res.ok) throw new Error(`雲端讀取失敗 (${res.status})`);
       const body = await res.json();

@@ -456,22 +456,18 @@
   function renderSettings(data) {
     $("#companyNameInput").value = data.settings?.companyName || "WorkPanda";
     $("#storageMode").value = store.getMode() === "cloud" ? "cloud" : "local";
-    const tokenInput = $("#syncTokenInput");
-    if (tokenInput && document.activeElement !== tokenInput) {
-      tokenInput.value = store.getSyncToken();
-    }
     const status = $("#firebaseStatus");
     if (!status) return;
     if (store.getMode() === "cloud" && store.cloudReady) {
       status.textContent = store.sampleData
-        ? "已連上雲端 API（本機示範資料庫）。發佈後會用正式 Postgres，各裝置即時同步同一份資料。"
-        : "已連上雲端資料庫，各裝置約每 2.5 秒自動同步。";
+        ? "已連上雲端 API（本機示範庫）。正式環境請用 Private／Team 發佈，各裝置 Cursor 登入後即時同步。"
+        : "已連上雲端資料庫（需 Cursor 登入），各裝置約每 2.5 秒自動同步。";
       status.style.color = "var(--brand)";
     } else if (store.lastError) {
       status.textContent = store.lastError;
       status.style.color = "var(--hold)";
     } else {
-      status.textContent = "本機模式：資料只存此瀏覽器。選「雲端同步」以跨裝置共用。";
+      status.textContent = "本機模式：資料只存此瀏覽器。雲端同步需 Private／Team 發佈 + Cursor 登入。";
       status.style.color = "var(--muted)";
     }
   }
@@ -976,7 +972,6 @@
     // settings / export
     $("#btnSaveSettings").addEventListener("click", async () => {
       const mode = $("#storageMode").value === "cloud" ? "cloud" : "local";
-      store.setSyncToken($("#syncTokenInput")?.value || "");
       await store.update((d) => {
         d.settings.companyName = $("#companyNameInput").value.trim() || "WorkPanda";
       });

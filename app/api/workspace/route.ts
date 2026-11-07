@@ -4,6 +4,8 @@ import { getOrCreateWorkspace, saveWorkspace } from "../../../src/lib/workspace"
 export const dynamic = "force-dynamic";
 
 const noStore = { "cache-control": "private, no-store" };
+/** Max JSON body size for workspace PUT (bytes). */
+const MAX_BODY_BYTES = 512 * 1024;
 
 export async function GET(request: Request) {
   const access = await requireAppAccess(request);
@@ -26,14 +28,30 @@ export async function PUT(request: Request) {
   const access = await requireAppAccess(request);
   if (access instanceof Response) return access;
 
+  const contentLength = Number(request.headers.get("content-length") || "0");
+  if (contentLength > MAX_BODY_BYTES) {
+    return Response.json(
+      { error: "payload_too_large", maxBytes: MAX_BODY_BYTES },
+      { status: 413, headers: noStore },
+    );
+  }
+
+  const raw = await request.text();
+  if (raw.length > MAX_BODY_BYTES) {
+    return Response.json(
+      { error: "payload_too_large", maxBytes: MAX_BODY_BYTES },
+      { status: 413, headers: noStore },
+    );
+  }
+
   let body: { data?: unknown; expectedUpdatedAt?: string | null };
   try {
-    body = await request.json();
+    body = JSON.parse(raw) as { data?: unknown; expectedUpdatedAt?: string | null };
   } catch {
     return Response.json({ error: "invalid_json" }, { status: 400, headers: noStore });
   }
 
-  if (!body.data || typeof body.data !== "object") {
+  if (!body.data || typeof body.data !== "object" || Array.isArray(body.data)) {
     return Response.json({ error: "missing_data" }, { status: 400, headers: noStore });
   }
 
