@@ -83,6 +83,16 @@ export async function requireAppAccess(request: Request): Promise<AccessOk | Res
     );
   }
 
+  if (identity.simulated) {
+    return deny(
+      key,
+      401,
+      "unauthorized",
+      "Simulated/dev identity cannot access the cloud workspace.",
+      { reason: "simulated_identity" },
+    );
+  }
+
   if (identity.kind !== "person") {
     return deny(
       key,
