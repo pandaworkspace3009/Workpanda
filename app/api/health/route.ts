@@ -1,14 +1,13 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/** Lightweight probe that the Next server (not static CDN) is serving routes. */
+/** Liveness only — no config fingerprints. */
 export async function GET() {
-  return Response.json(
-    {
-      ok: true,
-      service: "workpanda",
-      hasDatabaseUrl: Boolean(process.env.DATABASE_URL?.trim()),
+  return new Response("ok", {
+    status: 200,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "private, no-store",
     },
-    { headers: { "cache-control": "private, no-store" } },
-  );
+  });
 }

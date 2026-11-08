@@ -460,14 +460,14 @@
     if (!status) return;
     if (store.getMode() === "cloud" && store.cloudReady) {
       status.textContent = store.sampleData
-        ? "已連上雲端 API（本機示範庫）。請將 App 設為 Private／Team，各裝置 Cursor 登入後即時同步。"
-        : "已連上租戶雲端工作區（Private／Team + Cursor 登入），約每 2.5 秒自動同步。";
+        ? "已連上本機示範 API。線上靜態託管唔會跑 /api；跨裝置請用 web/ Next 發佈或 JSON 匯出／匯入。"
+        : "本機已連 API。正式即時同步請發佈 web/（Next + Postgres）並用 Private／Team。";
       status.style.color = "var(--brand)";
     } else if (store.lastError) {
       status.textContent = store.lastError;
       status.style.color = "var(--hold)";
     } else {
-      status.textContent = "本機模式：資料只存此瀏覽器。雲端同步需 Private／Team，並拒絕 Public 讀寫財務庫。";
+      status.textContent = "本機模式：資料只存此瀏覽器。此 grok.bot 位址為靜態託管；即時雲端同步見 web/ Next 發佈。";
       status.style.color = "var(--muted)";
     }
   }

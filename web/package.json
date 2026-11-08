@@ -1,0 +1,25 @@
+{
+  "name": "workpanda",
+  "private": true,
+  "version": "2.1.0",
+  "scripts": {
+    "dev": "env -u DATABASE_URL next dev -H 127.0.0.1 -p 8765",
+    "build": "next build && node scripts/migrate.mjs",
+    "start": "next start -H 127.0.0.1 -p 8765",
+    "migrate": "node scripts/migrate.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "next": "^15.1.0",
+    "pg": "^8.13.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}
